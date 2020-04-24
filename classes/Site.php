@@ -5,6 +5,9 @@
  */
 class PUM_Site {
 
+	/**
+	 * Initialize child classes and filters.
+	 */
 	public static function init() {
 		PUM_Site_Assets::init();
 		PUM_Site_Popups::init();
@@ -50,7 +53,7 @@ class PUM_Site {
 		 * @sinceWP 5.4
 		 */
 		if ( version_compare( $wp_version, '5.0.0', '>=' ) ) {
-			add_filter( 'pum_popup_content', [ __CLASS__, 'do_blocks' ], 9 );
+			add_filter( 'pum_popup_content', array( __CLASS__, 'do_blocks' ), 9 );
 		}
 		add_filter( 'pum_popup_content', 'wptexturize' );
 		add_filter( 'pum_popup_content', 'convert_smilies', 20 );
@@ -67,7 +70,7 @@ class PUM_Site {
 		 * @since 1.10.0
 		 * @sinceWP 5.4
 		 */
-		$do_shortcode_handler = pum_get_option( 'disable_shortcode_compatibility_mode' ) ? 'do_shortcode' : ['PUM_Helpers', 'do_shortcode' ];
+		$do_shortcode_handler = pum_get_option( 'disable_shortcode_compatibility_mode' ) ? 'do_shortcode' : array( 'PUM_Helpers', 'do_shortcode' );
 		add_filter( 'pum_popup_content', $do_shortcode_handler, 11 );
 	}
 
@@ -92,7 +95,7 @@ class PUM_Site {
 		$priority = has_filter( 'pum_popup_content', 'wpautop' );
 		if ( false !== $priority && doing_filter( 'pum_popup_content' ) && has_blocks( $content ) ) {
 			remove_filter( 'pum_popup_content', 'wpautop', $priority );
-			add_filter( 'pum_popup_content', [ __CLASS__, '_restore_wpautop_hook' ], $priority + 1 );
+			add_filter( 'pum_popup_content', array( __CLASS__, 'restore_wpautop_hook' ), $priority + 1 );
 		}
 
 		return $output;
@@ -110,11 +113,11 @@ class PUM_Site {
 	 * @param string $content The post content running through this filter.
 	 * @return string The unmodified content.
 	 */
-	public static function _restore_wpautop_hook( $content ) {
-		$current_priority = has_filter( 'pum_popup_content', [ __CLASS__, '_restore_wpautop_hook' ] );
+	public static function restore_wpautop_hook( $content ) {
+		$current_priority = has_filter( 'pum_popup_content', array( __CLASS__, 'restore_wpautop_hook' ) );
 
 		add_filter( 'pum_popup_content', 'wpautop', $current_priority - 1 );
-		remove_filter( 'pum_popup_content', [ __CLASS__, '_restore_wpautop_hook' ], $current_priority );
+		remove_filter( 'pum_popup_content', array( __CLASS__, 'restore_wpautop_hook' ), $current_priority );
 
 		return $content;
 	}
@@ -125,19 +128,18 @@ class PUM_Site {
 	 * functions are called on init.
 	 */
 	public static function actions() {
-		if ( empty( $_REQUEST['pum_action'] ) ) {
-			return;
-		}
+		$valid_actions = apply_filters(
+			'pum_valid_request_actions',
+			array(
+				'popup_sysinfo',
+				'save_enabled_betas',
+				'download_batch_export',
+			)
+		);
 
-		$valid_actions = apply_filters( 'pum_valid_request_actions', array(
-			'popup_sysinfo',
-			'save_enabled_betas',
-			'download_batch_export',
-		) );
+		$action = filter_input( INPUT_GET, 'pum_action', FILTER_SANITIZE_STRING );
 
-		$action = sanitize_text_field( $_REQUEST['pum_action'] );
-
-		if ( ! in_array( $action, $valid_actions ) || ! has_action( 'pum_' . $action ) ) {
+		if ( ! $action || ! in_array( $action, $valid_actions, true ) || ! has_action( 'pum_' . $action ) ) {
 			return;
 		}
 
